@@ -8,18 +8,18 @@
 #define REDPIN 2
 #define BAUDRATE 9600
 #define FIRST_REGISTER 0
-#define NUM_VALUES 21
+#define NUM_VALUES 2
 #define READ_INTERVAL 10000
 
 bool data_ready = false;
-int values[NUM_VALUES];
+uint16_t values[NUM_VALUES];
 uint32_t request_time;
 
 ModbusClientRTU MB(REDPIN);
 
 void handleData(ModbusMessage response, uint32_t token)
 {
-  uint16_t offs = 3;
+  uint16_t offs = 1;
   for (uint8_t i = 0; i < NUM_VALUES; ++i)
   {
     offs = response.get(offs, values[i]);
@@ -57,23 +57,35 @@ void loop()
   if (millis() - next_request > READ_INTERVAL)
   {
     data_ready = false;
-    Error err = MB.addRequest((uint32_t)millis(), 1, READ_HOLD_REGISTER, FIRST_REGISTER, 2);
+    Error err = MB.addRequest((uint32_t)millis(), 1, READ_HOLD_REGISTER, FIRST_REGISTER, NUM_VALUES);
     if (err != SUCCESS)
     {
       ModbusError e(err);
-      LOG_E("Error creating request: %02X-%S\n", (int)e, (const char *)e);
+      LOG_E("Error creating request: %02X-%s\n", (int)e, (const char *)e);
     }
     next_request = millis();
   }
   else
   {
+    // if (data_ready)
+    // {
+    //   Serial.printf("Requested at %8.3fs:\n", request_time / 1000.0);
+    //   for (uint8_t i = 0; i < NUM_VALUES; ++i)
+    //   {
+    //     Serial.printf("   %04X:%02d\n", i * 2 + FIRST_REGISTER, values[i]);
+    //   }
+    //   Serial.printf("----------\n\n");
+    //   data_ready = false;
+    // }
     if (data_ready)
     {
+      // We do. Print out the data
       Serial.printf("Requested at %8.3fs:\n", request_time / 1000.0);
-      for (uint8_t i = 0; i < NUM_VALUES; ++i)
-      {
-        Serial.printf("   %04X:%02d\n", i * 2 + FIRST_REGISTER, values[i]);
-      }
+      float temperature = values[1] / 10.0;
+      float humidity = values[0] / 10.0;
+
+      Serial.printf("Temperature: %.2f\n", temperature);
+      Serial.printf("Humidity: %.2f\n", humidity);
       Serial.printf("----------\n\n");
       data_ready = false;
     }
